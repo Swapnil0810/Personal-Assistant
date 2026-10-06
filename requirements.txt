@@ -1,0 +1,9 @@
+streamlit>=1.50
+pandas>=2.1
+plotly>=5.20
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+google-genai>=1.0
+xlsxwriter>=3.2
+openpyxl>=3.1
+tzdata
