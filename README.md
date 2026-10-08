@@ -1,4 +1,4 @@
-# Finance Tracker (Streamlit + Gemini Flash)
+# vriddhi-ai (Streamlit + Gemini Flash)
 
 Pages: Dashboard (KPIs, alerts, quick add, AI advice) · Bot (add/edit/delete/query in plain English) · Analytics (date range, categories, compare vs previous period/week/month/year/custom) · Ledger (Excel-like editable grid, filters, Excel export) · Settings (budgets/targets, import, backup).
 
@@ -24,3 +24,9 @@ The app URL is public, so always set `APP_PASSWORD`.
 
 ## Logs
 Everything goes to `logs/app.log` (rotating, 1 MB x 3, local timezone) and to the console: every bot prompt and reply, each tool call with arguments and result, Gemini errors per model (code, status, message), the models discovered from the API, database errors with full tracebacks, and unhandled page errors. Open **Settings → Logs** to read or download it. Change the folder with the `LOG_DIR` secret. On Streamlit Community Cloud the file is wiped on restart; use *Manage app → Logs* there for the console copy.
+
+## Updating the live app
+1. Change files locally (or copy new files over the repo folder, including `assets/`).
+2. `git add . && git commit -m "describe the change" && git push origin main`
+3. Streamlit Cloud watches `main` and redeploys within about a minute. New packages go in `requirements.txt`. Secrets are edited in the app's Settings → Secrets.
+4. Database tables are created or upgraded automatically on first start; existing entries are kept.

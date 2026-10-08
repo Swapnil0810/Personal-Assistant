@@ -51,12 +51,12 @@ def prev_range(start: dt.date, end: dt.date, mode: str) -> tuple[dt.date, dt.dat
 def slice_df(df: pd.DataFrame, start, end, cats=None) -> pd.DataFrame:
     m = (df["date"] >= pd.Timestamp(start)) & (df["date"] <= pd.Timestamp(end))
     if cats:
-        m &= df["category"].isin(list(cats))
+        m &= df["group"].isin(list(cats))
     return df[m]
 
 
 def totals(df: pd.DataFrame) -> dict:
-    by_cat = df.groupby("category")["amount"].sum().reindex(CATEGORIES).fillna(0.0)
+    by_cat = df.groupby("group")["amount"].sum().reindex(CATEGORIES).fillna(0.0)  # the four groups
     return {
         "by_cat": by_cat,
         "total": float(by_cat.sum()),
@@ -85,14 +85,14 @@ def trend_frame(df: pd.DataFrame, start, end) -> tuple[pd.DataFrame, str]:
         grouper, label = pd.Grouper(key="date", freq="W-MON", label="left", closed="left"), "Weekly"
     else:
         grouper, label = pd.Grouper(key="date", freq="MS"), "Monthly"
-    g = df.groupby([grouper, "category"])["amount"].sum().reset_index()
+    g = df.groupby([grouper, "group"])["amount"].sum().reset_index()
     return g, label
 
 
 def cumulative(df: pd.DataFrame, start, end, cats=None) -> pd.Series:
     """Cumulative outflow by day index (1..N) so two periods can be overlaid."""
     days = pd.date_range(start, end, freq="D")
-    d = df if cats is None else df[df["category"].isin(cats)]
+    d = df if cats is None else df[df["group"].isin(cats)]
     daily = d.groupby("date")["amount"].sum().reindex(days).fillna(0.0)
     s = daily.cumsum()
     s.index = range(1, len(days) + 1)

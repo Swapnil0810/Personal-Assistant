@@ -56,7 +56,7 @@ def trend(df: pd.DataFrame, start, end) -> go.Figure:
     g, label = an.trend_frame(df, start, end)
     fig = go.Figure()
     for cat in CATEGORIES:
-        d = g[g["category"] == cat]
+        d = g[g["group"] == cat]
         if not d.empty:
             fig.add_bar(x=d["date"], y=d["amount"], name=cat, marker_color=COLORS[cat])
     fig.update_layout(barmode="stack")
@@ -72,6 +72,23 @@ def cumulative(cur: pd.Series, prev: pd.Series | None, cur_label="Current", prev
     fig.update_xaxes(title="Day of period")
     fig.update_yaxes(tickprefix="₹", gridcolor="rgba(128,128,128,0.2)")
     return _style(fig, title="Cumulative outflow, day by day")
+
+
+def subcategories(df: pd.DataFrame) -> go.Figure:
+    """Spend per category name, bar colored by the group it belongs to."""
+    s = df.groupby(["category", "group"])["amount"].sum().reset_index().sort_values("amount").tail(12)
+    fig = go.Figure(
+        go.Bar(
+            x=s["amount"],
+            y=list(s["category"]),
+            orientation="h",
+            marker_color=[COLORS.get(g, CUR) for g in s["group"]],
+            customdata=s["group"],
+            hovertemplate="%{y} (%{customdata})<br>₹%{x:,.0f}<extra></extra>",
+        )
+    )
+    fig.update_xaxes(tickprefix="₹", gridcolor="rgba(128,128,128,0.2)")
+    return _style(fig, title="By category")
 
 
 def banks(df: pd.DataFrame) -> go.Figure:

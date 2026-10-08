@@ -72,7 +72,7 @@ def compute_alerts(df: pd.DataFrame, budgets: dict[str, float], t: dt.date) -> l
             elif t.day >= 25:
                 out.append(Alert("warning", f"{cat} target not reached", f"{inr(used)} of {inr(limit)} target, month is nearly over."))
 
-    extras = cur_df[cur_df["category"] == "Extra"]
+    extras = cur_df[cur_df["group"] == "Extra"]
     if not extras.empty:
         top = extras.loc[extras["amount"].idxmax()]
         out.append(Alert("info", "Biggest 'Extra' expense this month", f"{inr(top['amount'])} on {top['date']:%d %b}: {top['details'] or 'no details'}."))

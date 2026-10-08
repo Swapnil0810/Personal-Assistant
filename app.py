@@ -1,14 +1,19 @@
 import hmac
+from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="Finance Tracker", page_icon="💰", layout="wide")
+ASSETS = Path(__file__).parent / "assets"
+
+st.set_page_config(page_title="vriddhi-ai", page_icon=str(ASSETS / "vriddhi-icon.png"), layout="wide")
 
 from core.config import get_secret  # noqa: E402
 from core.logger import get_logger  # noqa: E402
 from views import analytics, bot_chat, dashboard, ledger, settings  # noqa: E402
 
 log = get_logger("app")
+
+st.logo(str(ASSETS / "vriddhi-logo.svg"), icon_image=str(ASSETS / "vriddhi-icon.svg"), size="large")
 
 
 def gate() -> None:
@@ -18,14 +23,17 @@ def gate() -> None:
         return
     if st.session_state.get("auth"):
         return
-    st.title("🔒 Finance Tracker")
-    with st.form("login"):
-        p = st.text_input("Password", type="password")
-        if st.form_submit_button("Unlock", type="primary"):
-            if hmac.compare_digest(p.encode(), pw.encode()):
-                st.session_state["auth"] = True
-                st.rerun()
-            st.error("Wrong password")
+    left, mid, right = st.columns([1, 1.2, 1])
+    with mid:
+        st.image(str(ASSETS / "vriddhi-logo.svg"), width=260)
+        st.caption("Your money, growing.")
+        with st.form("login"):
+            p = st.text_input("Password", type="password")
+            if st.form_submit_button("Unlock", type="primary", width="stretch"):
+                if hmac.compare_digest(p.encode(), pw.encode()):
+                    st.session_state["auth"] = True
+                    st.rerun()
+                st.error("Wrong password")
     st.stop()
 
 
