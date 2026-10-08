@@ -30,7 +30,9 @@ def to_excel(df: pd.DataFrame) -> bytes:
             ws.autofilter(0, 0, n, len(out.columns) - 1)
             ws.write(n + 1, 2, "Total (filtered)", bold)
             ws.write_formula(n + 1, 3, f"=SUBTOTAL(109,D2:D{n + 1})", bold_money)
-        summary = out.groupby("Category")["Amount"].sum().reindex(CATEGORIES).fillna(0.0).to_frame("Total")
+        grp = df["group"] if "group" in df else df["category"]
+        summary = df.groupby(grp)["amount"].sum().reindex(CATEGORIES).fillna(0.0).to_frame("Total")
+        summary.index.name = "Group"
         summary.to_excel(xw, sheet_name="Summary")
         xw.sheets["Summary"].set_column(0, 0, 20)
         xw.sheets["Summary"].set_column(1, 1, 16, money)

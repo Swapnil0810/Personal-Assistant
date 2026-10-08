@@ -34,7 +34,7 @@ def _fail(e: Exception) -> dict:
 
 # ---------------- tools exposed to Gemini (docstrings are the tool descriptions) ----------------
 def add_expense(date: str, bank: str, category: str, amount: float, details: str) -> dict:
-    """Add a new entry. date is YYYY-MM-DD. category must be one of: Home Essential, SIP, Stock Investment, Extra."""
+    """Add a new entry. date is YYYY-MM-DD. category must be one of the category names listed in the system prompt. bank should match a known bank when possible (new banks are saved automatically)."""
     try:
         new_id = db.add_expense(date, bank, category, amount, details)
         _WRITES[0] += 1
@@ -62,6 +62,7 @@ def search_expenses(start_date: str = "", end_date: str = "", category: str = ""
             "count": int(len(df)),
             "total": round(float(df["amount"].sum()), 2),
             "by_category": {k: round(float(v), 2) for k, v in df.groupby("category")["amount"].sum().items()},
+            "by_group": {k: round(float(v), 2) for k, v in df.groupby("group")["amount"].sum().items()},
             "truncated": len(df) > 40,
             "rows": rows,
         }
@@ -70,7 +71,7 @@ def search_expenses(start_date: str = "", end_date: str = "", category: str = ""
 
 
 def summarize_expenses(start_date: str, end_date: str, group_by: str = "category", text: str = "", category: str = "") -> dict:
-    """Aggregate totals between two dates (YYYY-MM-DD). group_by is one of: category, bank, month, day. Optional text filter on details and category filter."""
+    """Aggregate totals between two dates (YYYY-MM-DD). group_by is one of: category, group, bank, month, day (group = the four main groups). Optional text filter on details and category filter (a group name includes all its categories)."""
     try:
         df = db.get_expenses(
             db.parse_date(start_date),
@@ -79,9 +80,9 @@ def summarize_expenses(start_date: str, end_date: str, group_by: str = "category
             None,
             text or None,
         )
-        key = {"category": df["category"], "bank": df["bank"], "month": df["date"].dt.strftime("%Y-%m"), "day": df["date"].dt.strftime("%Y-%m-%d")}.get(group_by)
+        key = {"category": df["category"], "group": df["group"], "bank": df["bank"], "month": df["date"].dt.strftime("%Y-%m"), "day": df["date"].dt.strftime("%Y-%m-%d")}.get(group_by)
         if key is None:
-            return {"ok": False, "error": "group_by must be category, bank, month or day"}
+            return {"ok": False, "error": "group_by must be category, group, bank, month or day"}
         g = df.groupby(key)["amount"].agg(["sum", "count"])
         return {
             "ok": True,
@@ -131,11 +132,17 @@ TOOLS = [_logged(f) for f in (add_expense, search_expenses, summarize_expenses, 
 
 def _system_prompt() -> str:
     t = today()
+    gm = db.group_map()
+    cat_lines = "\n".join(f"  - {n}" if n == g else f"  - {n} (group: {g})" for n, g in gm.items())
+    banks = ", ".join(db.bank_names()) or "(none saved yet)"
     return f"""You are the assistant inside a personal finance tracker. Currency is INR (₹). Today is {t:%A, %Y-%m-%d}.
-Each entry has: date, bank, category (exactly one of: {', '.join(db.CATEGORIES)}), amount, details.
+Each entry has: date, bank, category, amount, details.
+Category must be exactly one of these names (the four main groups are Home Essential, SIP, Stock Investment, Extra; the others are the user's own categories inside a group):
+{cat_lines}
+Known banks: {banks}. Match the user's bank to a known bank when obvious; a new bank name is fine and gets saved.
 Rules:
 - Use tools for every read or write; never invent numbers or ids. Resolve relative dates ("yesterday", "last month", "this week") to YYYY-MM-DD.
-- Adding: if date is missing use today. Infer category: rent, groceries, bills, EMI, utilities, maintenance -> Home Essential; mutual fund / SIP -> SIP; shares, stocks, demat, ETF -> Stock Investment; everything else (dining, shopping, travel, wedding, gifts) -> Extra. If amount is missing or the category is truly unclear, ask one short question instead of guessing.
+- Adding: if date is missing use today. Prefer a matching user category when one clearly fits; otherwise infer the group: rent, groceries, bills, EMI, utilities, maintenance -> Home Essential; mutual fund / SIP -> SIP; shares, stocks, demat, ETF -> Stock Investment; everything else (dining, shopping, travel, wedding, gifts) -> Extra. If amount is missing or the category is truly unclear, ask one short question instead of guessing.
 - Modifying or deleting: first call search_expenses to find the id. If several entries match, list them and ask which. Ask for confirmation before deleting unless the user already clearly named that exact entry and said to delete it.
 - Questions like "how much did I spend on X between dates": call search_expenses with text=X and the date range, then report count and total (and a short breakdown if useful).
 - If a tool returns ok=false, quote its error text exactly and say nothing was saved. Never claim the system or database is down, and never guess a cause.
@@ -236,12 +243,17 @@ def chat(history: list[dict], message: str) -> str:
         log.error(str(e))
         return str(e)
     ERRORS.clear()
+    try:
+        system = _system_prompt()  # reads categories and banks from the database
+    except Exception as e:
+        log.exception("could not build system prompt")
+        return f"Database error: {type(e).__name__}: {e} (see Settings → Logs)"
     hist = history[-12:]
     while hist and hist[0]["role"] != "user":
         hist = hist[1:]
     contents = [types.Content(role="user" if m["role"] == "user" else "model", parts=[types.Part(text=m["content"])]) for m in hist]
     cfg = types.GenerateContentConfig(
-        system_instruction=_system_prompt(),
+        system_instruction=system,
         tools=TOOLS,
         temperature=0.2,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(maximum_remote_calls=8),
