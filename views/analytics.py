@@ -44,11 +44,11 @@ def render():
             start, end = an.preset_range_dates(preset, t)
             st.caption(f"{start:%d %b %Y} to {end:%d %b %Y}")
     with c2:
-        cats = st.multiselect("Categories", db.CATEGORIES, default=db.CATEGORIES)
+        cats = st.multiselect("Groups", db.CATEGORIES, default=db.CATEGORIES, help="Your own categories roll up into these four groups")
     with c3:
         mode = st.selectbox("Compare with", an.COMPARE_MODES)
     if not cats:
-        st.warning("Select at least one category.")
+        st.warning("Select at least one group.")
         return
 
     prev_df, pstart, pend = None, None, None
@@ -97,6 +97,7 @@ def render():
 
     with tab3:
         a, b = st.columns([1, 1.3])
+        a.plotly_chart(charts.subcategories(cur), width="stretch")
         a.plotly_chart(charts.banks(cur), width="stretch")
         top = cur.nlargest(10, "amount").assign(date=lambda x: x["date"].dt.strftime("%d %b %Y"))
         b.markdown("**Top 10 entries**")

@@ -29,7 +29,7 @@ def render():
             start, end = (r if isinstance(r, tuple) and len(r) == 2 else (None, None))
         else:
             start, end = an.preset_range_dates(preset, t)
-    cats = f2.multiselect("Category", db.CATEGORIES, key="lg_cats")
+    cats = f2.multiselect("Category", db.category_names(), key="lg_cats")
     banks = f3.multiselect("Bank", sorted(b for b in all_df["bank"].unique() if b), key="lg_banks")
     text = f4.text_input("Search details", key="lg_text")
 
@@ -42,6 +42,7 @@ def render():
     key = f"grid_{ver}"
     show = view[GRID_COLS].copy()
     show["date"] = show["date"].dt.date
+    show["bank"] = show["bank"].replace("", None)  # dropdown cells need a real option or empty
 
     st.caption(f"{len(view)} rows · total {inr(view['amount'].sum())} · edit cells, add rows at the bottom, select rows and press Delete, then Save.")
     edited = st.data_editor(
@@ -55,8 +56,8 @@ def render():
         column_config={
             "id": st.column_config.NumberColumn("ID", width="small"),
             "date": st.column_config.DateColumn("Date", format="DD MMM YYYY", required=True),
-            "bank": st.column_config.TextColumn("Bank name"),
-            "category": st.column_config.SelectboxColumn("Category", options=db.CATEGORIES, required=True),
+            "bank": st.column_config.SelectboxColumn("Bank name", options=db.bank_names(extra=view["bank"].unique())),
+            "category": st.column_config.SelectboxColumn("Category", options=db.category_names(), required=True),
             "amount": st.column_config.NumberColumn("Amount (₹)", format="%.2f", min_value=0.01, required=True),
             "details": st.column_config.TextColumn("Details", width="large"),
         },
